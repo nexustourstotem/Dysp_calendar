@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Tours – Date Picker</title>
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 2rem;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: #ff6600;
+      margin-bottom: 1rem;
+      font-size: 1.8rem;
+      text-align: center;
+    }
+    .container {
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 360px;
+      box-sizing: border-box;
+    }
+    .field {
+      margin-bottom: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .field label {
+      font-size: 0.9rem;
+      margin-bottom: 0.4rem;
+      text-align: center;
+      width: 100%;
+    }
+    .field input[type="text"] {
+      padding: 0.8rem;
+      font-size: 1rem;
+      border: 2px solid #ffcc99;
+      border-radius: 5px;
+      background: #fff;
+      color: #333;
+      width: 100%;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    .field input[type="text"]:focus {
+      border-color: #ff6600;
+    }
+    .counter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .counter button {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 4px;
+      background: #ff6600;
+      color: #fff;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .counter button:disabled {
+      background: #ddd;
+      cursor: not-allowed;
+    }
+    .counter span {
+      min-width: 24px;
+      text-align: center;
+      font-size: 1rem;
+    }
+    .flatpickr-calendar {
+      font-family: 'Segoe UI', sans-serif;
+      border: 2px solid #ffcc99;
+    }
+    #go {
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      background: #ff6600;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 1rem;
+      display: block;
+      text-align: center;
+    }
+    #go:hover { background: #e65500; }
+    .debug {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      color: #bbb;
+      text-align: center;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>Select Your Date</h1>
+  <div class="container">
+    <div class="field">
+      <label for="datePicker">Date</label>
+      <input type="text" id="datePicker" placeholder="Pick a date" readonly />
+    </div>
+    <div class="field">
+      <label>Adults (18+)</label>
+      <div class="counter">
+        <button id="decAdults">–</button>
+        <span id="adultsCount">1</span>
+        <button id="incAdults">+</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Children (0–17)</label>
+      <div class="counter">
+        <button id="decChildren">–</button>
+        <span id="childrenCount">0</span>
+        <button id="incChildren">+</button>
+      </div>
+    </div>
+    <div id="childAgesContainer"></div>
+    <button id="go">Done</button>
+    <div id="debugUrl" class="debug"></div>
+  </div>
+
+  <!-- Flatpickr JS -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script>
+    const productType  = 'TKT';
+    const prov         = 'SGN';
+    const accion       = 'searchservices';
+    const params       = new URLSearchParams(window.location.search);
+    const productID    = params.get('productID')     || prompt('Enter productID, e.g.: ?productID=498');
+    const destinationID= params.get('destinationID') || prompt('Enter destinationID, e.g.: ?destinationID=108913');
+    const utm_source   = params.get('utm_source')   || '';
+    const utm_medium   = params.get('utm_medium')   || '';
+    const utm_campaign = params.get('utm_campaign') || '';
+    const promoCode    = params.get('promocode')    || '';
+
+    flatpickr('#datePicker', {
+      dateFormat: 'Y-m-d', altInput: true, altFormat: 'F j, Y', locale: 'en', defaultDate: new Date()
+    });
+
+    const encodeCount = n => n === 10 ? 'A' : String(n);
+    let adults = 1, children = 0, childAges = [];
+
+    const updateCounters = () => {
+      document.getElementById('adultsCount').textContent = adults;
+      document.getElementById('childrenCount').textContent = children;
+      document.getElementById('decAdults').disabled = adults <= 1;
+      document.getElementById('decChildren').disabled = children <= 0;
+    };
+
+    document.getElementById('incAdults').addEventListener('click', () => { adults = Math.min(10, adults+1); updateCounters(); });
+    document.getElementById('decAdults').addEventListener('click', () => { adults = Math.max(1, adults-1); updateCounters(); });
+    document.getElementById('incChildren').addEventListener('click', () => { children = Math.min(10, children+1); setupChildAges(); updateCounters(); });
+    document.getElementById('decChildren').addEventListener('click', () => { children = Math.max(0, children-1); setupChildAges(); updateCounters(); });
+
+    function setupChildAges() {
+      const container = document.getElementById('childAgesContainer'); container.innerHTML = ''; childAges = Array(children).fill(0);
+      childAges.forEach((_, i) => {
+        const div = document.createElement('div'); div.className = 'field';
+        div.innerHTML = `
+          <label>Child ${i+1} Age</label>
+          <div class=\"counter\">
+            <button data-index=\"${i}\" class=\"decAge\">–</button>
+            <span id=\"age${i}\">0</span>
+            <button data-index=\"${i}\" class=\"incAge\">+</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+      document.querySelectorAll('.incAge').forEach(btn => btn.addEventListener('click', e => {
+        const idx = +e.target.dataset.index; childAges[idx] = Math.min(17, childAges[idx]+1);
+        document.getElementById(`age${idx}`).textContent = childAges[idx];
+      }));
+      document.querySelectorAll('.decAge').forEach(btn => btn.addEventListener('click', e => {
+        const idx = +e.target.dataset.index; childAges[idx] = Math.max(0, childAges[idx]-1);
+        document.getElementById(`age${idx}`).textContent = childAges[idx];
+      }));
+    }
+
+    updateCounters();
+
+    document.getElementById('go').addEventListener('click', () => {
+      const dateVal = document.getElementById('datePicker').value;
+      if (!dateVal) return alert('Please select a date.');
+      const startDate = dateVal;
+      const dt = new Date(dateVal); dt.setDate(dt.getDate()+1);
+      const endDate = dt.toISOString().slice(0,10);
+
+      const paxs = encodeCount(adults) + encodeCount(children);
+      const agesParam = childAges.map(a=>String(a).padStart(2,'0')).join('');
+      let url = `https://www.nexustours.com/services/details.aspx?` +
+        `productID=${productID}` +
+        `&paxs=${paxs}` +
+        `&productType=${productType}` +
+        `&destinationID=${destinationID}` +
+        `&startdate=${startDate}` +
+        `&enddate=${endDate}` +
+        `&prov=${prov}` +
+        `&accion=${accion}`;
+      if (agesParam)   url += `&ages=${agesParam}`;
+      if (utm_source)   url += `&utm_source=${encodeURIComponent(utm_source)}`;
+      if (utm_medium)   url += `&utm_medium=${encodeURIComponent(utm_medium)}`;
+      if (utm_campaign) url += `&utm_campaign=${encodeURIComponent(utm_campaign)}`;
+      if (promoCode)    url += `&promocode=${encodeURIComponent(promoCode)}`;
+
+      document.getElementById('debugUrl').textContent = url;
+      setTimeout(() => window.location.href = url, 500);
+    });
+  </script>
+</body>
+</html>
